@@ -1,0 +1,28 @@
+# In your stake-helm-charts repository, create GitHub Pages
+# Add this workflow: .github/workflows/release.yml
+
+name: Release Charts
+on:
+  push:
+    branches:
+        - 'main'
+  workflow_dispatch:
+
+jobs:
+  release:
+    # TODO add
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    
