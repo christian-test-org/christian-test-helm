@@ -1,0 +1,38 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.global.serviceName }}
+  namespace:  {{ include "christian-service.namespace" . }}
+  labels:
+    {{- include "christian-service.labels" . | nindent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/actions.{{ .Values.global.serviceName }}: '{"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"200","messageBody":""}}'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:{{ .Values.global.awsRegion }}:{{ .Values.global.awsAccountId }}:certificate/{{ .Values.ingress.annotations.acmCertificateId }}
+    alb.ingress.kubernetes.io/conditions.{{ .Values.global.serviceName }}: '[{"field":"host-header","hostHeaderConfig":{"values":["{{ .Values.global.siteAddress }}", "{{ .Values.global.acpSiteAddress }}"]}}]'
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.annotations.groupName }}
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-path: /live
+    alb.ingress.kubernetes.io/healthcheck-port: "8080"
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/load-balancer-attributes: {{ .Values.ingress.annotations.loadBalancerAttributes }}
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/success-codes: 200-499
+    alb.ingress.kubernetes.io/tags: {{ .Values.ingress.annotations.tags }}
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb-public
+  rules:
+    - http:
+        paths:
+          - backend:
+              service:
+                name: {{ .Values.global.serviceName }}
+                port:
+                  number: {{ .Values.ingress.port | default 8081 }}
+            path: {{ .Values.ingress.paths.backendPath }}
+            pathType: {{ .Values.ingress.paths.backendPathType | default "Prefix" }}
+
+{{- end }}

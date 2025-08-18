@@ -1,0 +1,33 @@
+{{- if .Values.certificate.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.global.serviceName }}
+  namespace:  {{ include "christian-service.namespace" . }}
+  labels:
+    {{- include "christian-service.labels" . | nindent 4 }}
+spec:
+  commonName: {{ .Values.certificate.commonName | default (printf "%s@%s" .Values.global.team (include "christian-service.namespace" .))  |  quote }}
+  duration: {{ .Values.certificate.duration | default "96h" }}
+  {{- $defaultEmail := printf "%s@%s" .Values.global.serviceName (include "christian-service.namespace" .) }}
+  {{- $emails := .Values.certificate.emailAddresses | default (list $defaultEmail) }}
+  emailAddresses:
+    {{- if kindIs "slice" $emails }}
+      {{- range $emails }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- else }}
+      - {{ $emails | quote }}
+    {{- end }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: clients-issuer
+  privateKey:
+    algorithm: Ed25519
+    rotationPolicy: Always
+  renewBefore: {{ .Values.certificate.renewBefore | default "24h"}}
+  revisionHistoryLimit: 3
+  secretName: {{ .Values.global.serviceName }}-tls
+  usages:
+  - client auth
+{{- end }}

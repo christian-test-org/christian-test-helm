@@ -1,0 +1,240 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.global.serviceName }}
+  namespace: {{ include "christian-service.namespace" . }}
+  labels:
+    {{- include "christian-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.horizontal.enabled }}
+  replicas: {{ include "christian-service.replicas" . | int }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.deployment.strategy.rollingUpdate.maxUnavailable }}
+    type: {{ .Values.deployment.strategy.type }}
+  selector:
+    matchLabels:
+      {{- include "christian-service.selectors" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{ printf "ad.datadoghq.com/%s.checks: |-" .Values.global.serviceName }}
+          {
+              "openmetrics": {
+                  "init_config": {},
+                  "instances": [
+                      {
+                          "openmetrics_endpoint": "http://%%host%%:8080/metrics",
+                          "namespace": "backend",
+                          "ignore_tags": [
+                              "endpoint",
+                              "image",
+                              "image.*",
+                              "git.*",
+                              "short_image",
+                              "pod_phase",
+                              "kernel",
+                              "kube_qos",
+                              "kube_deployment",
+                              "kube_container_name",
+                              "kube_ownerref_kind",
+                              "kube_priority_class",
+                              "kube_replica_set",
+                              "kube_service",
+                              "kube_app_managed_by",
+                              "kube_app_component",
+                              "kube_app_version",
+                              "kube_app_instance",
+                              "kubernetes.io/cluster.*"
+                          ],
+                          "metrics": [
+                              { "backend_error_count": "error.count" },
+                              { "nats_write_count": "nats.write" },
+                              { "nats_messages_write": "nats.messages.write" },
+                              { "nats_message_payload_size": "nats.message.payload.size" },
+                              { "nats_read_count": "nats.read" },
+                              { "nats_messages_read": "nats.messages.read" },
+                              { "nats_messages_pending": "nats.messages.pending" },
+                              { "nats_messages_received": "nats.messages.received" },
+                              { "nats_messages_processed": "nats.messages.processed" },
+                              { "nats_subscription_drain_duration": "nats.subscription.drain.duration" },
+                              { "nats_health_checks_request": "nats.health_checks.request" },
+                              { "nats_health_checks_request_latency": "nats.health_checks.request.latency" },
+                              { "nats_health_checks_published": "nats.health_checks.published" },
+                              { "nats_health_checks_received": "nats.health_checks.received" },
+                              { "nats_health_checks_pubsub_latency": "nats.health_checks.pubsub.latency" },
+                              { "client_duration": "client.duration" },
+                              { "client_count": "client.count" },
+                              { "server_duration": "server.duration" },
+                              { "server_count": "server.count" },
+                              { "server_read_count": "server.read" },
+                              { "server_write_count": "server.write" },
+                              { "backend_field_duration": "field.duration" },
+                              { "backend_resolver_counter": "resolver.count" },
+                              { "http_response_time": "http.response.time" },
+                              { "graphql_response_time": "graphql.response.time" },
+                              { "casino_bet_count": "casino.bet.count" },
+                              { "email_result_count": "email.result.count" },
+                              { "mixpanel_event_queue_count": "mixpanel.event.queue" },
+                              { "observable_event": "observable.event" },
+                              { "user_login_count": "user.login.count" },
+                              { "userkyc_count": "userkyc.count" },
+                              { "platform_ext_api_count": "platform.ext.api.count" },
+                              { "payment_event": "payment.event.count" },
+                              { "payment_duration": "payment.event.duration" },
+                              { "balance_transfer_size": "balance.transfer.size" },
+                              { "balance_update_size": "balance.update.size" },
+                              { "balance_read_size": "balance.read.size" },
+                              { "balance_transfer_violation": "balance.transfer_violation" },
+                              { "balance_transfer_duration": "balance.transfer.duration" },
+                              { "balance_update_duration": "balance.update.duration" },
+                              { "balance_transfer_published": "balance.transfer.published" },
+                              { "websocket_connection_count": "websocket.connection.count" },
+                              { "deleted_inactive_bet_count": "deleted.inactive.bet" },
+                              { "sport_bet_count": "sport.bet" },
+                              { "sport_bet_settlement_duration": "sport.bet.settlement.duration" },
+                              { "sport_feed_count": "sport.feed" },
+                              { "parse_search_bet_count": "bets.parse.search" }
+                          ],
+                          "histogram_buckets_as_distributions": true,
+                          "collect_counters_with_distributions": "true",
+                          "max_returned_metrics": 100000
+                      }
+                  ]
+              }
+          }
+      labels:
+        {{- include "christian-service.labels" . | nindent 8 }}
+    spec:
+      {{- if .Values.serviceAccount.enabled }}
+      {{- $serviceName := .Values.global.serviceName }}
+      {{- if .Values.serviceAccount.name }}
+      {{- $serviceName = .Values.serviceAccount.name }}
+      {{- end }}
+      serviceAccountName: {{ $serviceName }}-service-account
+      {{- end }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: {{ .Values.deployment.nodeSelector.nodepool }}
+                    operator: Exists
+{{- if or .Values.certificate.enabled .Values.secretProviderClass.enabled }}
+      volumes:
+        {{- if .Values.certificate.enabled }}
+        - name: nats-client-tls-secret
+          secret:
+            secretName: {{ .Values.global.serviceName }}-tls
+        - configMap:
+            name: root-ca-bundle
+          name: root-ca-bundle
+        {{- end }}
+        {{- if .Values.secretProviderClass.enabled }}
+        - csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Values.global.serviceName }}-service-provider-class
+          name: secret
+        {{- end }}
+{{- end }}
+      containers:
+        - name: {{ .Values.global.serviceName }}
+          image: {{ include "christian-service.image" . | quote }}
+          imagePullPolicy: {{ .Values.deployment.containerImagePullPolicy }}
+          {{- if .Values.deployment.args }}
+          args:
+            {{- toYaml .Values.deployment.args | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: healthcheck
+              containerPort: 8080
+              protocol: TCP
+            - name: api
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /live
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 3
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.global.awsRegion }}
+            - name: PRODUCT
+              value: {{ .Values.global.product }}
+            - name: SITE_MODE
+              value: production
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://$(HOST_IP):4318
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            - name: DD_ENV
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/env']
+            - name: DD_SERVICE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/service']
+            - name: DD_VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/version']
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.global.serviceName }}-env-configmap
+{{- if or .Values.certificate.enabled .Values.secretProviderClass.enabled }}
+          volumeMounts:
+          {{- if .Values.certificate.enabled }}
+            - mountPath: /etc/nats/certs/client
+              name: nats-client-tls-secret
+              readOnly: true
+            - mountPath: /etc/nats/certs/ca
+              name: root-ca-bundle
+              readOnly: true
+          {{- end }}
+          {{- if .Values.secretProviderClass.enabled }}
+            - mountPath: /etc/secrets
+              name: secret
+              readOnly: true
+          {{- end }}
+{{- end }}

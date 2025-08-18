@@ -1,0 +1,15 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.global.serviceName }}
+  namespace: {{ include "christian-service.namespace" . }}
+  labels:
+    {{- include "christian-service.labels" . | nindent 4 }}
+
+spec:
+  maxUnavailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "christian-service.labels" . | nindent 6 }}
+{{- end}}

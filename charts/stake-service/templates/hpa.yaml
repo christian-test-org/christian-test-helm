@@ -1,0 +1,38 @@
+{{- if .Values.autoscaling.horizontal.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Values.global.serviceName }}
+  namespace: {{ include "christian-service.namespace" . }}
+  labels:
+    {{- include "christian-service.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.global.serviceName }}
+  minReplicas: {{ .Values.autoscaling.horizontal.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.horizontal.maxReplicas }}
+  metrics:
+  {{- if .Values.autoscaling.horizontal.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.autoscaling.horizontal.targetCPUUtilizationPercentage }}
+  {{- end }}
+  {{- if .Values.autoscaling.horizontal.targetMemoryUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.autoscaling.horizontal.targetMemoryUtilizationPercentage }}
+  {{- end }}
+  {{- if .Values.autoscaling.horizontal.customMetrics }}
+  {{- range .Values.autoscaling.horizontal.customMetrics }}
+  - {{ toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+{{- end }}

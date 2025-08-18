@@ -1,0 +1,26 @@
+{{ if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.global.serviceName }}
+  namespace:  {{ include "christian-service.namespace" . }}
+  labels:
+    {{- include "christian-service.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "christian-service.labels" . | nindent 4 }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
+    - name: healthcheck
+      protocol: TCP
+      port: 8080
+      targetPort: healthcheck
+    - name: api
+      protocol: TCP
+      port: 8081
+      targetPort: api
+{{- end }}

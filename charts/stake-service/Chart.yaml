@@ -1,0 +1,7 @@
+apiVersion: v2
+name: christian-service
+description: A Helm chart for christian Services
+type: application
+version: 1.0.0
+# TODO replace this with a better icon URL
+icon: https://avatars.githubusercontent.com/u/25603064?s=200&v=4

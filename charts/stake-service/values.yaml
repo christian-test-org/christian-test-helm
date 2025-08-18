@@ -1,0 +1,83 @@
+# Globally shared configurations for the Helm chart
+# These values can be overridden in the individual service's values.yaml
+# Values merge priority (highest to lowest):
+# 1. values-overlay.yaml (overlay-specific) HIGHEST PRIORITY
+# 3. ~/base/values-service.yaml (base service values)  
+# 4. apps/values-root.yaml (root defaults)  LOWEST PRIORITY
+
+global:
+  awsAccountId: ""
+  awsRegion: ""
+  siteAddress: ""
+  acpSiteAddress: ""
+  product: "christian"
+  serviceName: ""
+  namespace: ""
+  team: ""
+  environment: ""
+  appVersion: ""
+
+certificate:
+  enabled: false
+  renewBefore: 26h
+
+deployment:
+  ecrRepoName: "TBD replace this"
+  containerImagePullPolicy: "IfNotPresent"
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+  nodeSelector:
+    nodepool: ""
+  args: [] # Arguments to pass to the container, if any
+
+ingress:
+  enabled: false
+  annotations:
+    acmCertificateId: ""
+    groupName: ""
+    loadBalancerAttributes: deletion_protection.enabled=true
+    tags: Product=christian,Environment=preproduction,Region=region-placeholder
+  paths:
+    backendPath: "/_api/microservice-path-placeholder"
+
+extraLabels: {}
+overrideLabels: {}
+
+extraSelectors: {}
+overrideSelectors: {}
+
+autoscaling:
+  horizontal:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+    customMetrics: [] # Custom metrics for HPA if available
+  # TODO consider this for future use
+  # Graceful termination only supported from Kubernetes v1.33 onwards
+  # Currently beta in k8s v1.33
+  # vertical:
+  #  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+secretProviderClass:
+  enabled: false
+  parameters:
+    preferredAddressType: ipv4
+    userPodIdentity: "true"
+    objects: [] # List of secret objects to create.
+
+service:
+  enabled: false
+
+serviceAccount:
+  enabled: false
+  name: "" # Override for ServiceAccount name, don't add -service-account
+  iamRoleName: "" # Override for IAM role Name, don't add -service-account
